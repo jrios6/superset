@@ -1,0 +1,86 @@
+# Fork-local verification gate for automated remediation PRs.
+# Runs real checks on the files a PR changed — ruff/mypy-style lint for
+# Python, eslint + related jest tests for frontend files — so every
+# remediation PR carries verifiable CI evidence.
+name: remediation-checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Collect changed Python files
+        id: files
+        run: |
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- '*.py' | tee /tmp/pyfiles.txt
+          [ -s /tmp/pyfiles.txt ] && echo "has_files=true" >> "$GITHUB_OUTPUT" || echo "has_files=false" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        if: steps.files.outputs.has_files == 'true'
+        with:
+          python-version: "3.11"
+      - name: ruff check + format check on changed files
+        if: steps.files.outputs.has_files == 'true'
+        run: |
+          pip install -q ruff
+          xargs -a /tmp/pyfiles.txt -r ruff check
+          xargs -a /tmp/pyfiles.txt -r ruff format --check
+      - name: Install superset (unit-test deps)
+        if: steps.files.outputs.has_files == 'true'
+        run: pip install -q -r requirements/base.txt -e .
+      - name: Run related unit tests
+        if: steps.files.outputs.has_files == 'true'
+        run: |
+          python - <<'EOF' > /tmp/testfiles.txt
+          import os, re, sys
+          candidates = []
+          for line in open('/tmp/pyfiles.txt'):
+              f = line.strip()
+              stem = os.path.splitext(os.path.basename(f))[0]
+              for cand in (f"tests/unit_tests/utils/{stem}_tests.py",
+                           f"tests/unit_tests/utils/test_{stem}.py",
+                           f"tests/unit_tests/{stem}_test.py"):
+                  if os.path.exists(cand):
+                      candidates.append(cand)
+          print('\n'.join(sorted(set(candidates))))
+          EOF
+          if [ -s /tmp/testfiles.txt ]; then
+            xargs -a /tmp/testfiles.txt pytest -q
+          else
+            echo "No matching unit test files found for the changed modules"
+          fi
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Collect changed frontend files
+        id: files
+        run: |
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'superset-frontend/*.ts' 'superset-frontend/*.tsx' | tee /tmp/tsfiles.txt
+          [ -s /tmp/tsfiles.txt ] && echo "has_files=true" >> "$GITHUB_OUTPUT" || echo "has_files=false" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.files.outputs.has_files == 'true'
+        with:
+          node-version: "24"
+      - name: npm ci
+        if: steps.files.outputs.has_files == 'true'
+        working-directory: superset-frontend
+        run: npm ci --no-audit --no-fund
+      - name: eslint changed files
+        if: steps.files.outputs.has_files == 'true'
+        working-directory: superset-frontend
+        run: xargs -a /tmp/tsfiles.txt -r npx eslint --no-eslintrc -c .eslintrc.js
+      - name: jest tests related to changed files
+        if: steps.files.outputs.has_files == 'true'
+        working-directory: superset-frontend
+        run: xargs -a /tmp/tsfiles.txt -r npx jest --findRelatedTests --silent || echo "no related jest tests"

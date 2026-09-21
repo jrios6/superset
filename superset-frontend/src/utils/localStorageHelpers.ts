@@ -89,16 +89,13 @@ export type LocalStorageValues = {
  * Instead, use getItem and setItem. Any legacy uses should be updated/migrated in future
  * Superset versions (as they may require breaking changes).
  * */
-export function dangerouslyGetItemDoNotUse(
-  key: string,
-  defaultValue: any,
-): any {
+export function dangerouslyGetItemDoNotUse<T>(key: string, defaultValue: T): T {
   try {
     const value = localStorage.getItem(key);
     if (value === null) {
       return defaultValue;
     }
-    return JSON.parse(value);
+    return JSON.parse(value) as T;
   } catch {
     return defaultValue;
   }
@@ -111,7 +108,7 @@ export function dangerouslyGetItemDoNotUse(
  * Instead, use getItem and setItem. Any legacy uses should be updated/migrated in future
  * Superset versions (as they may require breaking changes).
  * */
-export function dangerouslySetItemDoNotUse(key: string, value: any): void {
+export function dangerouslySetItemDoNotUse<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {

@@ -94,7 +94,7 @@ def histogram(
         result = np.histogram(series.dropna(), bins=bin_edges)[0]
         return result if not cumulative else np.cumsum(result)
 
-    if len(groupby) == 0:
+    if not groupby:
         # without grouping
         hist_dict = dict(zip(bin_edges_str, hist_values(df[column]), strict=False))
         histogram_df = DataFrame(hist_dict, index=[0])

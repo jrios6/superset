@@ -200,7 +200,7 @@ class SlackV2Notification(SlackMixin, BaseNotification):  # pylint: disable=too-
             file_type, files = self._get_inline_files()
 
             def send_to_channel(channel: str, retry_deadline: float) -> None:
-                if len(files) > 0:
+                if files:
                     if file_type is None:
                         raise SlackChannelResponseError(
                             "Slack upload file type was not provided"

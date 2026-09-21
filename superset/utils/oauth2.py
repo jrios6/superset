@@ -41,6 +41,7 @@ from superset.exceptions import (
     OAuth2TokenRefreshError,
 )
 from superset.superset_typing import OAuth2ClientConfig, OAuth2State
+from superset.utils.dates import naive_utcnow
 
 if TYPE_CHECKING:
     from superset.db_engine_specs.base import BaseEngineSpec
@@ -122,7 +123,7 @@ def get_oauth2_access_token(
     if token is None:
         return None
 
-    if token.access_token and datetime.now() < token.access_token_expiration:
+    if token.access_token and naive_utcnow() < token.access_token_expiration:
         return token.access_token
 
     if token.refresh_token:
@@ -203,7 +204,7 @@ def _refresh_oauth2_token_locked(  # noqa: C901
         if (
             not force
             and token.access_token
-            and datetime.now() < token.access_token_expiration
+            and naive_utcnow() < token.access_token_expiration
         ):
             return token.access_token
 
@@ -250,7 +251,7 @@ def _refresh_oauth2_token_locked(  # noqa: C901
             return None
 
         token.access_token = token_response["access_token"]
-        token.access_token_expiration = datetime.now() + timedelta(
+        token.access_token_expiration = naive_utcnow() + timedelta(
             seconds=token_response["expires_in"]
         )
         # Support single-use refresh tokens

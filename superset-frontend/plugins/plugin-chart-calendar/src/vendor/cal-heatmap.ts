@@ -585,9 +585,9 @@ var CalHeatMap = function () {
             return self._domainType.week.maxItemNumber;
           case 'month':
             return self.options.domainDynamicDimension
-              ? self.getWeekNumber(
+              ? self.getMonthWeekNumber(
                   new Date(d.getFullYear(), d.getMonth() + 1, 0),
-                ) - self.getWeekNumber(d)
+                ) + 1
               : 5;
         }
       },
@@ -599,7 +599,7 @@ var CalHeatMap = function () {
         return self.getSubDomainColumnNumber(d);
       },
       position: {
-        x: function (d) {
+        x: function (d, domain) {
           switch (self.options.domain) {
             case 'year':
               return Math.floor(
@@ -607,7 +607,8 @@ var CalHeatMap = function () {
               );
             case 'month':
               return Math.floor(
-                self.getMonthWeekNumber(d) / self._domainType.week.row(d),
+                self.getMonthWeekNumber(d, domain) /
+                  self._domainType.week.row(d),
               );
           }
         },
@@ -765,10 +766,13 @@ var CalHeatMap = function () {
       .map(function (d) {
         self._domains.set(
           d,
-          self.getSubDomain(d).map(function (d) {
+          self.getSubDomain(d).map(function (subDomain) {
             return {
-              t: self._domainType[self.options.subDomain].extractUnit(d),
+              t: self._domainType[self.options.subDomain].extractUnit(
+                subDomain,
+              ),
               v: null,
+              domain: d,
             };
           }),
         );
@@ -1062,10 +1066,10 @@ var CalHeatMap = function () {
       .attr('width', options.cellSize)
       .attr('height', options.cellSize)
       .attr('x', function (d) {
-        return self.positionSubDomainX(d.t);
+        return self.positionSubDomainX(d.t, d.domain);
       })
       .attr('y', function (d) {
-        return self.positionSubDomainY(d.t);
+        return self.positionSubDomainY(d.t, d.domain);
       })
       .on('click', function (d) {
         if (options.onClick !== null) {
@@ -1230,10 +1234,10 @@ var CalHeatMap = function () {
           return 'subdomain-text' + self.getHighlightClassName(d.t);
         })
         .attr('x', function (d) {
-          return self.positionSubDomainX(d.t) + options.cellSize / 2;
+          return self.positionSubDomainX(d.t, d.domain) + options.cellSize / 2;
         })
         .attr('y', function (d) {
-          return self.positionSubDomainY(d.t) + options.cellSize / 2;
+          return self.positionSubDomainY(d.t, d.domain) + options.cellSize / 2;
         })
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'central')
@@ -2105,10 +2109,13 @@ CalHeatMap.prototype = {
     var total = newDomains.length;
     var domains = this.getDomainKeys();
 
-    function buildSubDomain(d) {
-      return {
-        t: parent._domainType[parent.options.subDomain].extractUnit(d),
-        v: null,
+    function buildSubDomain(domain) {
+      return function (d) {
+        return {
+          t: parent._domainType[parent.options.subDomain].extractUnit(d),
+          v: null,
+          domain: domain,
+        };
       };
     }
 
@@ -2129,7 +2136,9 @@ CalHeatMap.prototype = {
     for (i = 0, total = newDomains.length; i < total; i += 1) {
       this._domains.set(
         newDomains[i].getTime(),
-        this.getSubDomain(newDomains[i]).map(buildSubDomain),
+        this.getSubDomain(newDomains[i]).map(
+          buildSubDomain(newDomains[i].getTime()),
+        ),
       );
 
       this._domains.remove(backward ? domains.pop() : domains.shift());
@@ -2210,20 +2219,22 @@ CalHeatMap.prototype = {
   // POSITIONNING                                //
   // =========================================================================//
 
-  positionSubDomainX: function (d) {
+  positionSubDomainX: function (d, domain) {
     'use strict';
 
     var index = this._domainType[this.options.subDomain].position.x(
       new Date(d),
+      domain,
     );
     return index * this.options.cellSize + index * this.options.cellPadding;
   },
 
-  positionSubDomainY: function (d) {
+  positionSubDomainY: function (d, domain) {
     'use strict';
 
     var index = this._domainType[this.options.subDomain].position.y(
       new Date(d),
+      domain,
     );
     return index * this.options.cellSize + index * this.options.cellPadding;
   },
@@ -2452,20 +2463,32 @@ CalHeatMap.prototype = {
   /**
    * Return the week number, relative to its month
    *
+   * A week straddling two months belongs to both, so the month it is
+   * positioned in can be passed explicitly; it defaults to the date's month.
+   *
    * @param  int|Date d Date or timestamp in milliseconds
+   * @param  int|Date month Any date or timestamp within the reference month
    * @return int Week number, relative to the month [0-5]
    */
-  getMonthWeekNumber: function (d) {
+  getMonthWeekNumber: function (d, month) {
     'use strict';
 
     if (typeof d === 'number') {
       d = new Date(d);
     }
+    if (month === undefined || month === null) {
+      month = d;
+    } else if (typeof month === 'number') {
+      month = new Date(month);
+    }
 
-    var monthFirstWeekNumber = this.getWeekNumber(
-      new Date(d.getFullYear(), d.getMonth()),
+    var weekStart = this._domainType.week.extractUnit(d);
+    var monthFirstWeekStart = this._domainType.week.extractUnit(
+      new Date(month.getFullYear(), month.getMonth()),
     );
-    return this.getWeekNumber(d) - monthFirstWeekNumber - 1;
+    return Math.round(
+      (weekStart - monthFirstWeekStart) / (7 * 24 * 3600 * 1000),
+    );
   },
 
   /**
@@ -2869,18 +2892,11 @@ CalHeatMap.prototype = {
      */
     var computeWeekSubDomainSize = function (date, domain) {
       if (domain === 'month') {
-        var endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-        var endWeekNb = parent.getWeekNumber(endOfMonth);
-        var startWeekNb = parent.getWeekNumber(
-          new Date(date.getFullYear(), date.getMonth()),
+        return (
+          parent.getMonthWeekNumber(
+            new Date(date.getFullYear(), date.getMonth() + 1, 0),
+          ) + 1
         );
-
-        if (startWeekNb > endWeekNb) {
-          startWeekNb = 0;
-          endWeekNb += 1;
-        }
-
-        return endWeekNb - startWeekNb + 1;
       } else if (domain === 'year') {
         return parent.getWeekNumber(new Date(date.getFullYear(), 11, 31));
       }

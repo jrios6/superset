@@ -27,8 +27,14 @@ interface CalHeatMapInstance {
     dateFormatter: DateFormatter | null;
     timeFormatter: (t: number) => string;
     valueFormatter: (v: number) => string;
+    domain: string;
+    subDomain: string;
+    weekStartOnMonday: boolean;
   };
   formatDate(date: Date, format: string | FunctionalDateFormat): string;
+  getSubDomain(date: Date): Date[];
+  getMonthWeekNumber(date: Date | number, month?: Date | number): number;
+  getSubDomainColumnNumber(date: Date): number;
   tip: { html(): (d: { t: number; v: number }) => string };
   legendTip: { html(): (d: number) => string };
 }
@@ -79,6 +85,31 @@ test('cell tooltip HTML escapes creator-controlled formatter output', () => {
   expect(html).toContain('&lt;img');
   expect(html).toContain('&lt;svg');
 });
+
+test.each([
+  ['a month starting on Monday', new Date(2025, 8, 1), true, 5],
+  ['a month starting mid-week', new Date(2025, 9, 1), true, 5],
+  ['a month spanning a year boundary', new Date(2025, 0, 1), true, 5],
+  ['a month spanning six weeks', new Date(2024, 11, 1), true, 6],
+  ['a month with weeks starting on Sunday', new Date(2025, 5, 1), false, 5],
+])(
+  'week subdomain cells in %s are contiguous from column 0',
+  (_, monthStart, weekStartOnMonday, expectedWeeks) => {
+    const calendar = new CalHeatMap();
+    calendar.options.domain = 'month';
+    calendar.options.subDomain = 'week';
+    calendar.options.weekStartOnMonday = weekStartOnMonday;
+
+    const weeks = calendar.getSubDomain(monthStart);
+    const positions = weeks.map(week =>
+      calendar.getMonthWeekNumber(week, monthStart),
+    );
+
+    expect(weeks).toHaveLength(expectedWeeks);
+    expect(positions).toEqual([...Array(expectedWeeks).keys()]);
+    expect(calendar.getSubDomainColumnNumber(monthStart)).toBe(expectedWeeks);
+  },
+);
 
 test('legend tooltip HTML escapes creator-controlled formatter output', () => {
   const calendar = new CalHeatMap();

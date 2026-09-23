@@ -60,7 +60,7 @@ export type Props = Omit<SuperChartCoreProps, 'chartProps'> &
     /** Theme object (optional, falls back to ThemeProvider context) */
     theme?: SupersetTheme;
     /**
-     * Set this to true to disable error boundary built-in in SuperChart
+     * Set this to true to disable the error boundary built into SuperChart
      * and let the error propagate to upper level
      * and handle by yourself
      */

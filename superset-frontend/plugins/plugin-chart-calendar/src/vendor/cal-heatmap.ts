@@ -2364,7 +2364,7 @@ CalHeatMap.prototype = {
   },
 
   /**
-   * Returns wether or not dateA is less than or equal to dateB. This function is subdomain aware.
+   * Returns whether or not dateA is less than or equal to dateB. This function is subdomain aware.
    * Performs automatic conversion of values.
    * @param dateA may be a number or a Date
    * @param dateB may be a number or a Date

@@ -20,8 +20,9 @@
 import base64
 import hashlib
 import logging
+import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import cast
 
 import pytest
@@ -38,6 +39,7 @@ from superset.exceptions import (
     OAuth2TokenRefreshError,
 )
 from superset.superset_typing import OAuth2ClientConfig
+from superset.utils.dates import naive_utcnow
 from superset.utils.oauth2 import (
     check_for_oauth2,
     decode_oauth2_state,
@@ -77,6 +79,52 @@ def test_get_oauth2_access_token_base_token_valid(mocker: MockerFixture) -> None
 
     with freeze_time("2024-01-01"):
         assert get_oauth2_access_token({}, 1, 1, db_engine_spec) == "access-token"
+
+
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="requires time.tzset")
+@pytest.mark.parametrize("tz", ["Etc/GMT-8", "Etc/GMT+8"])
+def test_get_oauth2_access_token_expiry_uses_utc(
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tz: str,
+) -> None:
+    """
+    Test that token expiry is compared and stored in UTC regardless of host timezone.
+
+    A token expiring one hour from the UTC clock must be considered valid whether
+    the host is at UTC+8 (where the local clock is already past the expiry) or
+    UTC-8 (where the local clock would keep an expired token alive).
+    """
+    monkeypatch.setenv("TZ", tz)
+    time.tzset()
+    try:
+        assert datetime.now() != naive_utcnow()
+
+        db = mocker.patch("superset.utils.oauth2.db")
+        mocker.patch("superset.utils.oauth2.DistributedLock")
+        db_engine_spec = mocker.MagicMock()
+        db_engine_spec.get_oauth2_fresh_token.return_value = {
+            "access_token": "new-token",
+            "expires_in": 3600,
+        }
+        token = mocker.MagicMock()
+        token.access_token = "access-token"  # noqa: S105
+        token.access_token_expiration = naive_utcnow() + timedelta(hours=1)
+        token.refresh_token = "refresh-token"  # noqa: S105
+        db.session.query().filter_by().one_or_none.return_value = token
+
+        assert get_oauth2_access_token({}, 1, 1, db_engine_spec) == "access-token"
+        db_engine_spec.get_oauth2_fresh_token.assert_not_called()
+
+        token.access_token_expiration = naive_utcnow() - timedelta(hours=1)
+        assert get_oauth2_access_token({}, 1, 1, db_engine_spec) == "new-token"
+
+        # refreshed expiration is stored relative to the UTC clock
+        delta = token.access_token_expiration - naive_utcnow()
+        assert timedelta(minutes=59) < delta <= timedelta(hours=1)
+    finally:
+        monkeypatch.undo()
+        time.tzset()
 
 
 def test_get_oauth2_access_token_base_refresh(mocker: MockerFixture) -> None:

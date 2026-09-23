@@ -56,7 +56,7 @@ def compare(  # pylint: disable=too-many-arguments
         raise InvalidPostProcessingError(
             _("`compare_type` must be `difference`, `percentage` or `ratio`")
         )
-    if len(source_columns) == 0:
+    if not source_columns:
         return df
 
     for s_col, c_col in zip(source_columns, compare_columns, strict=False):

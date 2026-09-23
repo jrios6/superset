@@ -170,7 +170,7 @@ def _restore_dropped_metric_columns(
         # dropped — skips metrics still present, avoiding O(n_rows × n_metrics)
         # upfront work when no all-NaN drop occurred.
         existing_metrics = (
-            set(df.columns.get_level_values(0)) if len(df.columns) > 0 else set()
+            set(df.columns.get_level_values(0)) if not df.columns.empty else set()
         )
         missing = {m for m in expected_metrics if m not in existing_metrics}
         if missing:

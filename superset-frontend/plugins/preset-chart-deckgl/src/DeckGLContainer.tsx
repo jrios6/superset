@@ -48,6 +48,9 @@ import { Viewport } from './utils/fitViewport';
 
 const TICK = 250; // milliseconds
 
+// Keeps the basemap's WebGL buffer readable so image exports can copy it.
+const MAP_CANVAS_CONTEXT_ATTRIBUTES = { preserveDrawingBuffer: true };
+
 const DEFAULT_MAP_STYLE =
   'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
@@ -172,6 +175,7 @@ export const DeckGLContainer = memo(
               onMove={onMove}
               mapStyle={mapStyle}
               style={{ width, height }}
+              preserveDrawingBuffer
             >
               <DeckGLOverlayMapbox layers={layers()} />
             </MapboxMap>
@@ -181,6 +185,7 @@ export const DeckGLContainer = memo(
               onMove={onMove}
               mapStyle={mapStyle}
               style={{ width, height }}
+              canvasContextAttributes={MAP_CANVAS_CONTEXT_ATTRIBUTES}
             >
               <DeckGLOverlayMapLibre layers={layers()} />
             </MapLibreMap>

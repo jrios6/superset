@@ -199,8 +199,11 @@ function MapLibre({
   }
 
   const MapComponent = mapProvider === 'mapbox' ? MapboxMap : MapLibreMap;
+  // Keeps the basemap's WebGL buffer readable so image exports can copy it.
   const mapboxProps =
-    mapProvider === 'mapbox' ? { mapboxAccessToken: mapboxApiKey } : {};
+    mapProvider === 'mapbox'
+      ? { mapboxAccessToken: mapboxApiKey, preserveDrawingBuffer: true }
+      : { canvasContextAttributes: { preserveDrawingBuffer: true } };
 
   return (
     <MapComponent

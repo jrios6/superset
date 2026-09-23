@@ -34,12 +34,20 @@ jest.mock('react-map-gl/maplibre', () => ({
     children,
     mapStyle,
     onMove,
+    canvasContextAttributes,
   }: {
     children: ReactNode;
     mapStyle: unknown;
     onMove: (evt: { viewState: Record<string, number> }) => void;
+    canvasContextAttributes?: { preserveDrawingBuffer?: boolean };
   }) => (
-    <div data-test="maplibre-map" data-map-style={JSON.stringify(mapStyle)}>
+    <div
+      data-test="maplibre-map"
+      data-map-style={JSON.stringify(mapStyle)}
+      data-preserve-drawing-buffer={String(
+        canvasContextAttributes?.preserveDrawingBuffer,
+      )}
+    >
       <button
         type="button"
         aria-label="move map"
@@ -54,8 +62,20 @@ jest.mock('react-map-gl/maplibre', () => ({
 }));
 
 jest.mock('react-map-gl/mapbox', () => ({
-  Map: ({ children, mapStyle }: { children: ReactNode; mapStyle: unknown }) => (
-    <div data-test="mapbox-map" data-map-style={JSON.stringify(mapStyle)}>
+  Map: ({
+    children,
+    mapStyle,
+    preserveDrawingBuffer,
+  }: {
+    children: ReactNode;
+    mapStyle: unknown;
+    preserveDrawingBuffer?: boolean;
+  }) => (
+    <div
+      data-test="mapbox-map"
+      data-map-style={JSON.stringify(mapStyle)}
+      data-preserve-drawing-buffer={String(preserveDrawingBuffer)}
+    >
       {children}
     </div>
   ),
@@ -135,6 +155,28 @@ test('DeckGLContainer passes style JSON URLs through to MapLibre', () => {
   expect(screen.getByTestId('maplibre-map')).toHaveAttribute(
     'data-map-style',
     JSON.stringify(styleUrl),
+  );
+});
+
+test('DeckGLContainer preserves the MapLibre drawing buffer for image export', () => {
+  renderContainer({ mapProvider: 'maplibre' });
+
+  expect(screen.getByTestId('maplibre-map')).toHaveAttribute(
+    'data-preserve-drawing-buffer',
+    'true',
+  );
+});
+
+test('DeckGLContainer preserves the Mapbox drawing buffer for image export', () => {
+  renderContainer({
+    mapProvider: 'mapbox',
+    mapStyle: 'mapbox://styles/mapbox/dark-v9',
+    mapboxApiKey: 'pk.test',
+  });
+
+  expect(screen.getByTestId('mapbox-map')).toHaveAttribute(
+    'data-preserve-drawing-buffer',
+    'true',
   );
 });
 

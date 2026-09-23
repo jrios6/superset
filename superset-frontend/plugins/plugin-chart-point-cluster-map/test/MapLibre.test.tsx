@@ -281,6 +281,24 @@ test('passes Mapbox styles through when a key exists', () => {
   expect(lastMapProps.mapboxAccessToken).toBe('pk.test');
 });
 
+test('preserves the Mapbox drawing buffer for image export', () => {
+  document.body.innerHTML = `<div id="app" data-bootstrap='${JSON.stringify({
+    common: { conf: { MAPBOX_API_KEY: 'pk.test' } },
+  })}'></div>`;
+
+  render(<MapLibre {...defaultProps} mapProvider="mapbox" />);
+
+  expect(lastMapProps.preserveDrawingBuffer).toBe(true);
+});
+
+test('preserves the MapLibre drawing buffer for image export', () => {
+  render(<MapLibre {...defaultProps} />);
+
+  expect(lastMapProps.canvasContextAttributes).toEqual({
+    preserveDrawingBuffer: true,
+  });
+});
+
 test('handles undefined bounds gracefully', () => {
   render(<MapLibre {...defaultProps} bounds={undefined} />);
   expect(lastMapProps.longitude).toBe(0);

@@ -678,6 +678,11 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
     # a custom `adjust_engine_params` method.
     supports_dynamic_schema = False
 
+    # Can tables be referenced as ``schema.table`` in the FROM clause? Engines that
+    # don't support this (like MongoDB) must select the schema through
+    # `adjust_engine_params` instead, and datasets render only the bare table name.
+    supports_schema_qualified_tables = True
+
     # Does the DB support catalogs? A catalog here is a group of schemas, and has
     # different names depending on the DB: BigQuery calles it a "project", Postgres calls  # noqa: E501
     # it a "database", Trino calls it a "catalog", etc.

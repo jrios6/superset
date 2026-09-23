@@ -38,7 +38,7 @@ from sqlalchemy import (
     table,
     text,
 )
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 
 from superset.db_engine_specs.mongodb import MongoDBEngineSpec
 from superset.sql.parse import Table
@@ -54,13 +54,18 @@ require_driver("pymongosql")
 from testcontainers.community.mongodb import MongoDbContainer  # noqa: E402
 
 COLLECTION = "pilot_pagination"
+DATASET_DB = "dataset_db"
+DATASET_COLLECTION = "orders"
 
 
 @pytest.fixture(scope="module")
-def engine() -> Iterator[Engine]:
+def mongo_url() -> Iterator[str]:
     with MongoDbContainer("mongo:7.0.7") as container:
         client = container.get_connection_client()
         client[container.dbname][COLLECTION].insert_many([{"id": i} for i in range(10)])
+        client[DATASET_DB][DATASET_COLLECTION].insert_many(
+            [{"amount": 10}, {"amount": 20}]
+        )
         # MongoDbContainer.get_connection_url() has no database path segment
         # or query string at all (it only builds user:pass@host:port), so
         # naively appending "&mode=superset" glues it straight onto the port
@@ -72,10 +77,15 @@ def engine() -> Iterator[Engine]:
         # user via MONGO_INITDB_ROOT_USERNAME, which lives in the `admin`
         # database, not in `dbname` -- without it, auth fails against
         # whatever database is in the URL path.
-        yield create_engine(
+        yield (
             f"mongodb://{container.username}:{container.password}@{host}:{port}"
             f"/{container.dbname}?mode=superset&authSource=admin"
         )
+
+
+@pytest.fixture(scope="module")
+def engine(mongo_url: str) -> Iterator[Engine]:
+    return create_engine(mongo_url)
 
 
 def test_paginated_query_returns_correct_rows_in_order(engine: Engine) -> None:
@@ -139,3 +149,26 @@ def test_get_columns_maps_native_types(engine: Engine) -> None:
     assert spec is not None
     assert spec.generic_type == GenericDataType.NUMERIC
     assert isinstance(spec.sqla_type, Integer)
+
+
+def test_dataset_schema_selects_database(mongo_url: str) -> None:
+    """
+    A dataset's schema is a MongoDB database. It must reach the driver via
+    `adjust_engine_params` (the ``database`` connect arg) while the FROM
+    clause carries only the bare collection name -- pymongosql reads the
+    whole FROM reference as the collection and would otherwise look for a
+    collection literally named ``dataset_db.orders`` in the URI database.
+    """
+    uri, connect_args = MongoDBEngineSpec.adjust_engine_params(
+        make_url(mongo_url), {}, schema=DATASET_DB
+    )
+    engine = create_engine(uri, connect_args=connect_args)
+
+    stmt = select(column("amount")).select_from(table(DATASET_COLLECTION))
+    compiled = str(stmt.compile(engine, compile_kwargs={"literal_binds": True}))
+    assert f"FROM {DATASET_COLLECTION}" in compiled
+
+    with engine.connect() as conn:
+        rows = conn.execute(text(compiled)).fetchall()
+
+    assert sorted(row.amount for row in rows) == [10, 20]

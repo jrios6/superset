@@ -262,7 +262,10 @@ function DashboardList(props: DashboardListProps) {
   const userKey =
     user?.userId === undefined
       ? null
-      : dangerouslyGetItemDoNotUse(user.userId.toString(), null);
+      : dangerouslyGetItemDoNotUse<{ thumbnails: boolean } | null>(
+          user.userId.toString(),
+          null,
+        );
 
   const canCreate = hasPerm('can_write');
   const canEdit = hasPerm('can_write');

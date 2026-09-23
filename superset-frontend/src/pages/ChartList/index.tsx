@@ -333,9 +333,10 @@ function ChartList(props: ChartListProps) {
     () =>
       userId === undefined
         ? null
-        : (dangerouslyGetItemDoNotUse(userId.toString(), null) as {
-            thumbnails: boolean;
-          }),
+        : dangerouslyGetItemDoNotUse<{ thumbnails: boolean } | null>(
+            userId.toString(),
+            null,
+          ),
     [userId],
   );
 

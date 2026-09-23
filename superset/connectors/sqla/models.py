@@ -1963,7 +1963,10 @@ class SqlaTable(
             # the already-quoted identifier components
             return table(quoted_name(full_name, quote=False))
 
-        if self.schema:
+        if (
+            self.schema
+            and self.database.db_engine_spec.supports_schema_qualified_tables
+        ):
             return table(self.table_name, schema=self.schema)
 
         return table(self.table_name)

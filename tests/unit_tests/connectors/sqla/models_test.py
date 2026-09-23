@@ -1030,6 +1030,24 @@ def test_get_sqla_table_with_catalog(
     assert sqla_table.schema == expected_schema
 
 
+def test_get_sqla_table_without_schema_qualified_tables(
+    mocker: MockerFixture,
+) -> None:
+    """
+    Engines that can't reference ``schema.table`` (like MongoDB) get a bare table
+    name; the schema is applied to the connection instead.
+    """
+    database = mocker.MagicMock()
+    database.db_engine_spec.supports_cross_catalog_queries = False
+    database.db_engine_spec.supports_schema_qualified_tables = False
+
+    table = SqlaTable(table_name="orders", database=database, schema="testdb")
+    sqla_table = table.get_sqla_table()
+
+    assert sqla_table.name == "orders"
+    assert sqla_table.schema is None
+
+
 @pytest.mark.parametrize(
     "table_name, catalog, schema, expected_in_sql, not_expected_in_sql",
     [

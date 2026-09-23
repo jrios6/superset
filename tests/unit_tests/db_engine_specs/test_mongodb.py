@@ -123,3 +123,55 @@ def test_engine_metadata() -> None:
     assert spec.engine == "mongodb"
     assert spec.engine_name == "MongoDB"
     assert spec.force_column_alias_quotes is False
+
+
+def test_adjust_engine_params_sets_database_from_schema() -> None:
+    """The dataset/SQL Lab schema is applied via the ``database`` connect arg."""
+    from sqlalchemy.engine.url import make_url
+
+    from superset.db_engine_specs.mongodb import (
+        MongoDBEngineSpec as spec,  # noqa: N813
+    )
+
+    uri = make_url("mongodb://localhost:27017/testdb?mode=superset")
+
+    adjusted_uri, connect_args = spec.adjust_engine_params(uri, {}, schema="other")
+    assert adjusted_uri == uri
+    assert connect_args["database"] == "other"
+
+    adjusted_uri, connect_args = spec.adjust_engine_params(uri, {"foo": "bar"})
+    assert adjusted_uri == uri
+    assert connect_args == {"foo": "bar"}
+
+
+def test_get_schema_from_engine_params() -> None:
+    """The connect arg database takes precedence over the URI database."""
+    from sqlalchemy.engine.url import make_url
+
+    from superset.db_engine_specs.mongodb import (
+        MongoDBEngineSpec as spec,  # noqa: N813
+    )
+
+    uri = make_url("mongodb://localhost:27017/testdb?mode=superset")
+    assert spec.get_schema_from_engine_params(uri, {}) == "testdb"
+    assert spec.get_schema_from_engine_params(uri, {"database": "x"}) == "x"
+    assert (
+        spec.get_schema_from_engine_params(
+            make_url("mongodb://localhost:27017/?mode=superset"), {}
+        )
+        is None
+    )
+
+
+def test_quote_table_ignores_schema() -> None:
+    """Only the collection name is rendered; PyMongoSQL has no schema notion."""
+    from sqlalchemy.dialects import sqlite
+
+    from superset.db_engine_specs.mongodb import (
+        MongoDBEngineSpec as spec,  # noqa: N813
+    )
+    from superset.sql.parse import Table
+
+    dialect = sqlite.dialect()
+    assert spec.quote_table(Table("orders", "testdb"), dialect) == "orders"
+    assert spec.quote_table(Table("My Orders", "testdb"), dialect) == '"My Orders"'

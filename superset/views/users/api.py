@@ -242,7 +242,7 @@ class UserRestApi(BaseSupersetApi):
             return self.response_404()
 
         # fetch from the one-to-one relationship
-        if len(user.extra_attributes) > 0:
+        if user.extra_attributes:
             avatar_url = user.extra_attributes[0].avatar_url
 
         slack_token = app.config.get("SLACK_API_TOKEN")

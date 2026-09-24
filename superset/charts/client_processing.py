@@ -1277,7 +1277,7 @@ def _read_excel_for_client_processing(
     form_data: dict[str, Any],
 ) -> pd.DataFrame:
     df = pd.read_excel(BytesIO(data))
-    if len(df.columns) == 0:
+    if df.columns.empty:
         return df
 
     first_column = df.columns[0]

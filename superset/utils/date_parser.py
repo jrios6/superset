@@ -897,7 +897,7 @@ class EvalHolidayFunc:  # pylint: disable=too-few-public-methods
 
         holiday_lookup = country_holidays(country, years=[holiday_year], observed=False)
         searched_result = holiday_lookup.get_named(holiday, lookup="istartswith")
-        if len(searched_result) > 0:
+        if searched_result:
             return dttm_from_timetuple(searched_result[0].timetuple())
         raise ValueError(
             _("Unable to find such a holiday: [%(holiday)s]", holiday=holiday)

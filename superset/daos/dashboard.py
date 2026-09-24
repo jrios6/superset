@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from flask import g
 from flask_appbuilder.models.sqla.interface import SQLAInterface
@@ -170,7 +170,7 @@ class DashboardDAO(BaseDAO[Dashboard]):
         return query
 
     @classmethod
-    def get_filterable_columns_and_operators(cls) -> Dict[str, List[str]]:
+    def get_filterable_columns_and_operators(cls) -> dict[str, list[str]]:
         filterable = super().get_filterable_columns_and_operators()
         # Add custom fields for dashboards
         filterable.update(DASHBOARD_CUSTOM_FIELDS)

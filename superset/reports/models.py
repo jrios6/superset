@@ -340,7 +340,7 @@ class ReportSchedule(AuditMixinNullable, ExtraJSONMixin, Model):
             )
         if filter_type == "filter_range":
             # For range filters, values should be [min, max] or [value] for single value
-            min_val = values[0] if len(values) > 0 else None
+            min_val = values[0] if values else None
             max_val = values[1] if len(values) > 1 else None
 
             filters = []

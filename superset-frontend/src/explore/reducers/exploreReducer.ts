@@ -458,7 +458,7 @@ export default function exploreReducer(
         string,
         ExtendedControlState
       >;
-      const dependantControls = Object.entries(controlsTyped)
+      const dependentControls = Object.entries(controlsTyped)
         .filter(
           ([, item]) =>
             Array.isArray(item?.validationDependencies) &&
@@ -466,13 +466,13 @@ export default function exploreReducer(
         )
         .map(([key, item]) => ({
           controlState: item,
-          dependantControlName: key,
+          dependentControlName: key,
         }));
 
       let updatedControlStates: Record<string, ExtendedControlState> = {};
-      if (dependantControls.length > 0) {
-        const updatedControls = dependantControls.map(
-          ({ controlState, dependantControlName }) => {
+      if (dependentControls.length > 0) {
+        const updatedControls = dependentControls.map(
+          ({ controlState, dependentControlName }) => {
             // overwrite state form data with current control value as the redux state will not
             // have latest action value
             const overWrittenState = {
@@ -494,7 +494,7 @@ export default function exploreReducer(
                 >[1],
                 controlState?.value as JsonValue | undefined,
               ),
-              dependantControlName,
+              dependentControlName,
             };
           },
         );
@@ -502,9 +502,9 @@ export default function exploreReducer(
         updatedControlStates = updatedControls.reduce(
           (
             acc: Record<string, ExtendedControlState>,
-            { controlState, dependantControlName },
+            { controlState, dependentControlName },
           ) => {
-            acc[dependantControlName] = {
+            acc[dependentControlName] = {
               ...controlState,
             } as ExtendedControlState;
             return acc;
